@@ -8,6 +8,7 @@ import com.urufile.uruplayer.data.model.MediaFile
 import com.urufile.uruplayer.xmds.XmdsClient
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import com.bumptech.glide.Glide
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.xmlpull.v1.XmlPullParser
@@ -135,20 +136,77 @@ class FileManager(private val context: Context) {
             required
         }
 
+    // ── Emergency Disk Cleanup ────────────────────────────────────────────────
+
+    /**
+     * Purga archivos temporales .tmp, APKs obsoletos y la caché de Glide
+     * para liberar espacio de emergencia cuando el almacenamiento está por debajo de 150 MB.
+     */
+    fun performEmergencyDiskCleanup(): Long {
+        Log.i(tag, "Iniciando auto-liberación de espacio en disco de emergencia...")
+        var freedBytes = 0L
+
+        // 1. Eliminar archivos temporales .tmp
+        try {
+            mediaDir.listFiles { f -> f.name.endsWith(".tmp", ignoreCase = true) }?.forEach { tmpFile ->
+                val size = tmpFile.length()
+                if (tmpFile.delete()) {
+                    freedBytes += size
+                    Log.d(tag, "Liberado archivo temporal: ${tmpFile.name} ($size bytes)")
+                }
+            }
+        } catch (e: Exception) {
+            Log.w(tag, "Error limpiando temporales: ${e.message}")
+        }
+
+        // 2. Eliminar instaladores APK antiguos/residuales
+        try {
+            mediaDir.listFiles { f -> f.name.endsWith(".apk", ignoreCase = true) }?.forEach { apkFile ->
+                val size = apkFile.length()
+                if (apkFile.delete()) {
+                    freedBytes += size
+                    Log.d(tag, "Liberado instalador APK: ${apkFile.name} ($size bytes)")
+                }
+            }
+        } catch (e: Exception) {
+            Log.w(tag, "Error limpiando APKs: ${e.message}")
+        }
+
+        // 3. Purgar caché de imágenes de Glide en disco
+        try {
+            Glide.get(context).clearDiskCache()
+            Log.i(tag, "Caché de imágenes Glide purgada exitosamente")
+        } catch (e: Exception) {
+            Log.w(tag, "Error purgando caché de Glide: ${e.message}")
+        }
+
+        val freedMb = freedBytes / (1024 * 1024)
+        Log.i(tag, "Auto-liberación finalizada. Total liberado: $freedMb MB ($freedBytes bytes)")
+        return freedBytes
+    }
+
     // ── Download missing files ───────────────────────────────────────────────
 
     suspend fun downloadPendingFiles() = withContext(Dispatchers.IO) {
-        val usableSpace = context.filesDir.usableSpace
-        val usableMb = usableSpace / (1024 * 1024)
+        var usableSpace = context.filesDir.usableSpace
+        var usableMb = usableSpace / (1024 * 1024)
 
         // 1. Verificación global de espacio crítico (mínimo 150 MB libres)
+        if (usableSpace < MIN_FREE_SPACE_BYTES) {
+            Log.w(tag, "Espacio en disco bajo ($usableMb MB). Intentando auto-liberación de emergencia...")
+            performEmergencyDiskCleanup()
+            usableSpace = context.filesDir.usableSpace
+            usableMb = usableSpace / (1024 * 1024)
+        }
+
         if (usableSpace < MIN_FREE_SPACE_BYTES) {
             val msg = "⚠️ Espacio en disco crítico ($usableMb MB disponibles, mínimo requerido 150 MB). Pausando descargas."
             Log.w(tag, msg)
             try {
                 StatusReporter(context).submitLog(msg, "warning")
+                StatusReporter(context).notifyStatus()
             } catch (e: Exception) {
-                Log.e(tag, "Error enviando log al CMS: ${e.message}")
+                Log.e(tag, "Error enviando alerta al CMS: ${e.message}")
             }
             return@withContext
         }

@@ -98,4 +98,7 @@ dependencies {
 
     // LocalBroadcastManager (Worker → Player communication)
     implementation 'androidx.localbroadcastmanager:localbroadcastmanager:1.1.0'
+
+    // Testing
+    testImplementation 'junit:junit:4.13.2'
 }

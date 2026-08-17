@@ -12,7 +12,6 @@ import java.util.Locale
 class ScheduleParser {
 
     private val tag = "ScheduleParser"
-    private val dtFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US)
 
     /**
      * Parse CMS Schedule XML into a list of ScheduleItems.
@@ -112,7 +111,7 @@ class ScheduleParser {
     }
 
     private fun parseDt(str: String): Date? = try {
-        dtFormat.parse(str)
+        SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).parse(str)
     } catch (e: Exception) {
         Log.w(tag, "Cannot parse date: $str")
         null

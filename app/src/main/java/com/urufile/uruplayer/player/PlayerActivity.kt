@@ -588,6 +588,7 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     private fun openSettings() {
+        prefs.isSettingsOpen = true
         Toast.makeText(this, "Opening Settings...", Toast.LENGTH_SHORT).show()
         startActivity(Intent(this, SettingsActivity::class.java))
     }
