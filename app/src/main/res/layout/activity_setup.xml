@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true"
+    android:background="#1A1A2E">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="32dp"
+        android:gravity="center">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/setup_title"
+            android:textColor="#FFFFFF"
+            android:textSize="24sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="32dp"/>
+
+        <EditText
+            android:id="@+id/etCmsUrl"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="#23233E"
+            android:padding="16dp"
+            android:textColor="#FFFFFF"
+            android:textColorHint="#88FFFFFF"
+            android:hint="@string/cms_url_hint"
+            android:inputType="textUri"
+            android:layout_marginBottom="16dp"/>
+
+        <EditText
+            android:id="@+id/etServerKey"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="#23233E"
+            android:padding="16dp"
+            android:textColor="#FFFFFF"
+            android:textColorHint="#88FFFFFF"
+            android:hint="@string/server_key_hint"
+            android:inputType="textPassword"
+            android:layout_marginBottom="16dp"/>
+
+        <EditText
+            android:id="@+id/etDisplayName"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="#23233E"
+            android:padding="16dp"
+            android:textColor="#FFFFFF"
+            android:textColorHint="#88FFFFFF"
+            android:hint="@string/display_name_hint"
+            android:inputType="text"
+            android:layout_marginBottom="16dp"/>
+
+        <EditText
+            android:id="@+id/etCollectionInterval"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="#23233E"
+            android:padding="16dp"
+            android:textColor="#FFFFFF"
+            android:textColorHint="#88FFFFFF"
+            android:hint="@string/collection_interval_hint"
+            android:inputType="number"
+            android:layout_marginBottom="32dp"/>
+
+        <Button
+            android:id="@+id/btnSave"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:backgroundTint="#3C3D7A"
+            android:textColor="#FFFFFF"
+            android:text="@string/save_button"/>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center"
+            android:layout_marginTop="16dp">
+
+            <Button
+                android:id="@+id/btnWifiSettings"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginEnd="8dp"
+                android:backgroundTint="#3C3D7A"
+                android:textColor="#FFFFFF"
+                android:text="Wi-Fi"/>
+
+            <Button
+                android:id="@+id/btnBluetoothSettings"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginEnd="8dp"
+                android:backgroundTint="#3C3D7A"
+                android:textColor="#FFFFFF"
+                android:text="Bluetooth"/>
+
+            <Button
+                android:id="@+id/btnAndroidSettings"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:backgroundTint="#3C3D7A"
+                android:textColor="#FFFFFF"
+                android:text="Ajustes"/>
+
+        </LinearLayout>
+
+    </LinearLayout>
+</ScrollView>

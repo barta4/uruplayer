@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.Uruplayer" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="colorPrimary">#5253A3</item>
+        <item name="colorPrimaryVariant">#3C3D7A</item>
+        <item name="colorOnPrimary">#FFFFFF</item>
+        <item name="colorSecondary">#84C5ED</item>
+        <item name="colorSecondaryVariant">#5253A3</item>
+        <item name="colorOnSecondary">#000000</item>
+        <item name="android:statusBarColor">@android:color/black</item>
+        <item name="android:navigationBarColor">@android:color/black</item>
+        <item name="android:windowFullscreen">true</item>
+        <item name="windowNoTitle">true</item>
+        <item name="windowActionBar">false</item>
+        <!-- Permite que el contenido se extienda hasta el borde físico de la pantalla.
+             En TV boxes Android 11 con recortes o barras inusuales, evita que
+             el contenido quede cortado en los bordes. Ignorado si no hay notch. -->
+        <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
+    </style>
+</resources>

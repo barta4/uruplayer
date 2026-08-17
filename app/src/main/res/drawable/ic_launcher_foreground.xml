@@ -1,0 +1,29 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Outer glow ring -->
+    <path
+        android:fillColor="#1A00E5FF"
+        android:pathData="M54,10 A44,44 0 1 1 53.99,10 Z"/>
+
+    <!-- Circle border -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#00E5FF"
+        android:strokeWidth="2.5"
+        android:pathData="M54,14 A40,40 0 1 1 53.99,14 Z"/>
+
+    <!-- Play triangle — bold, centered, right-facing -->
+    <path
+        android:fillColor="#00E5FF"
+        android:pathData="M43,33 L43,75 L78,54 Z"/>
+
+    <!-- Inner highlight on triangle (lighter tip) -->
+    <path
+        android:fillColor="#80FFFFFF"
+        android:pathData="M43,33 L62,43 L78,54 L43,35 Z"/>
+
+</vector>
