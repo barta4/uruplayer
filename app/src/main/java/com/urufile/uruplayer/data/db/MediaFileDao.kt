@@ -27,8 +27,14 @@ interface MediaFileDao {
     @Update
     suspend fun update(file: MediaFile)
 
-    @Query("UPDATE media_files SET downloaded = 1 WHERE fileId = :id")
+    @Query("UPDATE media_files SET downloaded = 1, retryCount = 0 WHERE fileId = :id")
     suspend fun markDownloaded(id: Int)
+
+    @Query("UPDATE media_files SET retryCount = retryCount + 1, lastAttemptTimestamp = :timestamp WHERE fileId = :id")
+    suspend fun incrementRetry(id: Int, timestamp: Long = System.currentTimeMillis())
+
+    @Query("UPDATE media_files SET retryCount = 0 WHERE fileId = :id")
+    suspend fun resetRetries(id: Int)
 
     @Delete
     suspend fun delete(file: MediaFile)

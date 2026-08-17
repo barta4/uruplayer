@@ -28,6 +28,8 @@ class FileManager(private val context: Context) {
         private const val CHUNK_SIZE = 524288L   // 512 KB
         private const val MEDIA_DIR = "media"
         private const val DOWNLOAD_HTTP = "http"   // RequiredFiles download attribute value
+        const val MIN_FREE_SPACE_BYTES = 150L * 1024L * 1024L // 150 MB buffer mínimo requerido
+        const val MAX_RETRY_COUNT = 5
     }
 
     val mediaDir: File
@@ -74,6 +76,8 @@ class FileManager(private val context: Context) {
                         val existing = dao.getById(id)
                         val downloaded = existing?.downloaded == true && existing.md5 == md5
                                 && File(localPath).exists()
+                        val retryCount = if (existing != null && existing.md5 == md5) existing.retryCount else 0
+                        val lastAttempt = if (existing != null && existing.md5 == md5) existing.lastAttemptTimestamp else 0L
 
                         val mediaFile = MediaFile(
                             fileId    = id,
@@ -85,7 +89,9 @@ class FileManager(private val context: Context) {
                                         else File(mediaDir, saveAs).absolutePath,
                             downloaded = downloaded,
                             fileSize  = size,
-                            saveAs    = saveAs  // always track the intended local filename
+                            saveAs    = saveAs,  // always track the intended local filename
+                            retryCount = retryCount,
+                            lastAttemptTimestamp = lastAttempt
                         )
                         required.add(mediaFile)
                         dao.insert(mediaFile)
@@ -132,9 +138,51 @@ class FileManager(private val context: Context) {
     // ── Download missing files ───────────────────────────────────────────────
 
     suspend fun downloadPendingFiles() = withContext(Dispatchers.IO) {
+        val usableSpace = context.filesDir.usableSpace
+        val usableMb = usableSpace / (1024 * 1024)
+
+        // 1. Verificación global de espacio crítico (mínimo 150 MB libres)
+        if (usableSpace < MIN_FREE_SPACE_BYTES) {
+            val msg = "⚠️ Espacio en disco crítico ($usableMb MB disponibles, mínimo requerido 150 MB). Pausando descargas."
+            Log.w(tag, msg)
+            try {
+                StatusReporter(context).submitLog(msg, "warning")
+            } catch (e: Exception) {
+                Log.e(tag, "Error enviando log al CMS: ${e.message}")
+            }
+            return@withContext
+        }
+
         val pending = dao.getPending()
-        Log.i(tag, "Downloading ${pending.size} pending files")
-        pending.forEach { mediaFile ->
+        Log.i(tag, "Verificando ${pending.size} archivos pendientes para descarga (Espacio libre: $usableMb MB)")
+        val now = System.currentTimeMillis()
+
+        for (mediaFile in pending) {
+            // 2. Control anti-bucle: Backoff escalonado ante fallos repetitivos
+            val backoffMs = when {
+                mediaFile.retryCount >= MAX_RETRY_COUNT -> 60 * 60 * 1000L // 1 hora
+                mediaFile.retryCount >= 3 -> 15 * 60 * 1000L // 15 min
+                mediaFile.retryCount >= 1 -> 2 * 60 * 1000L  // 2 min
+                else -> 0L
+            }
+
+            if (backoffMs > 0 && (now - mediaFile.lastAttemptTimestamp) < backoffMs) {
+                val waitMin = ((backoffMs - (now - mediaFile.lastAttemptTimestamp)) / 1000 / 60) + 1
+                Log.d(tag, "Saltando fileId=${mediaFile.fileId} por backoff de reintentos (fallos=${mediaFile.retryCount}, reintento en ~${waitMin}m)")
+                continue
+            }
+
+            // 3. Comprobar que haya espacio suficiente para este archivo específico + 150 MB de margen de seguridad
+            val currentFree = context.filesDir.usableSpace
+            val requiredSpace = mediaFile.fileSize + MIN_FREE_SPACE_BYTES
+            if (mediaFile.fileSize > 0 && currentFree < requiredSpace) {
+                val fileSizeMb = mediaFile.fileSize / (1024 * 1024)
+                val msg = "Espacio insuficiente para fileId=${mediaFile.fileId} (Requiere $fileSizeMb MB + 150 MB buffer. Libre=${currentFree / (1024 * 1024)} MB). Postergando."
+                Log.w(tag, msg)
+                dao.incrementRetry(mediaFile.fileId, now)
+                continue
+            }
+
             try {
                 downloadFile(mediaFile)
             } catch (e: org.ksoap2.SoapFault) {
@@ -147,15 +195,18 @@ class FileManager(private val context: Context) {
                         dao.markDownloaded(mediaFile.fileId)
                     } catch (ioe: Exception) {
                         Log.e(tag, "Failed to create placeholder for invalid file: ${ioe.message}")
+                        dao.incrementRetry(mediaFile.fileId, now)
                     }
                 } else {
                     Log.e(tag, "SOAP Fault during download for fileId=${mediaFile.fileId}: ${e.message}", e)
+                    dao.incrementRetry(mediaFile.fileId, now)
                 }
             } catch (e: Exception) {
                 if (e is kotlinx.coroutines.CancellationException) {
                     throw e
                 }
                 Log.e(tag, "Failed to download fileId=${mediaFile.fileId}: ${e.message}", e)
+                dao.incrementRetry(mediaFile.fileId, now)
             }
         }
     }
@@ -196,7 +247,10 @@ class FileManager(private val context: Context) {
                             dao.markDownloaded(mediaFile.fileId)
                         } catch (ioe: Exception) {
                             Log.e(tag, "Failed to create placeholder for 404 file: ${ioe.message}")
+                            dao.incrementRetry(mediaFile.fileId, System.currentTimeMillis())
                         }
+                    } else {
+                        dao.incrementRetry(mediaFile.fileId, System.currentTimeMillis())
                     }
                     return
                 }
@@ -222,6 +276,7 @@ class FileManager(private val context: Context) {
                     if (totalBytes == 0L) {
                         Log.w(tag, "Empty HTTP response for fileId=${mediaFile.fileId}")
                         tempFile.delete()
+                        dao.incrementRetry(mediaFile.fileId, System.currentTimeMillis())
                         return
                     }
 
@@ -229,6 +284,10 @@ class FileManager(private val context: Context) {
                     if (mediaFile.md5.isNotBlank() && !downloadedMd5.equals(mediaFile.md5, ignoreCase = true)) {
                         Log.e(tag, "MD5 mismatch for fileId=${mediaFile.fileId}. Expected=${mediaFile.md5} Got=$downloadedMd5")
                         tempFile.delete()
+                        dao.incrementRetry(mediaFile.fileId, System.currentTimeMillis())
+                        if (mediaFile.retryCount + 1 >= MAX_RETRY_COUNT) {
+                            StatusReporter(context).submitLog("File id=${mediaFile.fileId} falló validación MD5 $MAX_RETRY_COUNT veces consecutivas. Pausando descargas.", "error")
+                        }
                         return
                     }
 
@@ -238,6 +297,7 @@ class FileManager(private val context: Context) {
                     } else {
                         Log.e(tag, "Failed to rename temp file $tempFile to $outputFile")
                         tempFile.delete()
+                        dao.incrementRetry(mediaFile.fileId, System.currentTimeMillis())
                     }
                 } catch (e: Exception) {
                     tempFile.delete()
@@ -290,6 +350,7 @@ class FileManager(private val context: Context) {
             if (totalBytes == 0L) {
                 Log.w(tag, "Empty SOAP response for fileId=${mediaFile.fileId}")
                 tempFile.delete()
+                dao.incrementRetry(mediaFile.fileId, System.currentTimeMillis())
                 return
             }
 
@@ -297,6 +358,10 @@ class FileManager(private val context: Context) {
             if (mediaFile.md5.isNotBlank() && !downloadedMd5.equals(mediaFile.md5, ignoreCase = true)) {
                 Log.e(tag, "MD5 mismatch for fileId=${mediaFile.fileId}. Expected=${mediaFile.md5} Got=$downloadedMd5")
                 tempFile.delete()
+                dao.incrementRetry(mediaFile.fileId, System.currentTimeMillis())
+                if (mediaFile.retryCount + 1 >= MAX_RETRY_COUNT) {
+                    StatusReporter(context).submitLog("File id=${mediaFile.fileId} falló validación MD5 $MAX_RETRY_COUNT veces consecutivas. Pausando descargas.", "error")
+                }
                 return
             }
 
@@ -306,6 +371,7 @@ class FileManager(private val context: Context) {
             } else {
                 Log.e(tag, "Failed to rename temp file $tempFile to $outputFile")
                 tempFile.delete()
+                dao.incrementRetry(mediaFile.fileId, System.currentTimeMillis())
             }
         } catch (e: Exception) {
             tempFile.delete()

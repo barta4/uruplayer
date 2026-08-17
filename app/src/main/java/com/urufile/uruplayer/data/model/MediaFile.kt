@@ -13,6 +13,8 @@ data class MediaFile(
     val downloaded: Boolean,
     val fileSize: Long = 0L,
     val saveAs: String = "",    // intended local filename (e.g. "17.otf", "1.xlf")
+    val retryCount: Int = 0,    // number of consecutive failed download attempts
+    val lastAttemptTimestamp: Long = 0L, // timestamp of last download attempt
     val lastUpdated: Long = System.currentTimeMillis()
 )
 

@@ -8,7 +8,7 @@ import com.urufile.uruplayer.data.model.MediaFile
 
 @Database(
     entities = [MediaFile::class],
-    version = 3,
+    version = 4,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
