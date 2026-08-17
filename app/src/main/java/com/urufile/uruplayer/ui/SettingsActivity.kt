@@ -145,6 +145,52 @@ class SettingsActivity : AppCompatActivity() {
         setupButtonFocus(btnForget, 0xFF4A1E1E.toInt(), 0xFFC0392B.toInt())
         layout.addView(btnForget)
 
+        // ── Launcher Principal Button ──
+        val isLauncher = com.urufile.uruplayer.util.PermissionHelper.isDefaultLauncher(this)
+        val btnLauncher = Button(this).apply {
+            text = if (isLauncher) "✅ UruPlayer es el Launcher Principal" else "🏠 Configurar como Launcher Principal"
+            setOnClickListener {
+                prefs.isSettingsOpen = true
+                com.urufile.uruplayer.util.PermissionHelper.requestDefaultLauncher(this@SettingsActivity, 201)
+            }
+        }
+        setupButtonFocus(btnLauncher, if (isLauncher) 0xFF2E5B3C.toInt() else 0xFF3C3D7A.toInt(), 0xFF5253A3.toInt())
+        layout.addView(btnLauncher)
+
+        // ── Permissions & Battery Optimization Button ──
+        val btnPerms = Button(this).apply {
+            text = "🛡️ Permisos y Optimización de Batería"
+            setOnClickListener {
+                val missing = com.urufile.uruplayer.util.PermissionHelper.getMissingRuntimePermissions(this@SettingsActivity)
+                val hasOverlay = com.urufile.uruplayer.util.PermissionHelper.canDrawOverlays(this@SettingsActivity)
+                val hasBattery = com.urufile.uruplayer.util.PermissionHelper.isIgnoringBatteryOptimizations(this@SettingsActivity)
+                val currentLauncher = com.urufile.uruplayer.util.PermissionHelper.isDefaultLauncher(this@SettingsActivity)
+
+                val msg = StringBuilder()
+                msg.append("• Permisos de almacenamiento: ${if (missing.isEmpty()) "✅ Concedidos" else "❌ Pendientes"}\n")
+                msg.append("• Superposición (Overlay): ${if (hasOverlay) "✅ Concedido" else "❌ Pendiente"}\n")
+                msg.append("• Sin ahorro de batería: ${if (hasBattery) "✅ Optimizado" else "❌ Pendiente"}\n")
+                msg.append("• Launcher principal: ${if (currentLauncher) "✅ Sí" else "❌ No"}\n\n")
+                msg.append("Selecciona una acción:")
+
+                AlertDialog.Builder(this@SettingsActivity)
+                    .setTitle("Estado de Permisos")
+                    .setMessage(msg.toString())
+                    .setPositiveButton("Batería") { _, _ ->
+                        prefs.isSettingsOpen = true
+                        com.urufile.uruplayer.util.PermissionHelper.requestIgnoreBatteryOptimizations(this@SettingsActivity, 202)
+                    }
+                    .setNeutralButton("Overlay") { _, _ ->
+                        prefs.isSettingsOpen = true
+                        com.urufile.uruplayer.util.PermissionHelper.requestOverlayPermission(this@SettingsActivity, 203)
+                    }
+                    .setNegativeButton("Cerrar", null)
+                    .show()
+            }
+        }
+        setupButtonFocus(btnPerms, 0xFF3C3D7A.toInt(), 0xFF5253A3.toInt())
+        layout.addView(btnPerms)
+
         // ── Exit Button ──
         val btnExit = Button(this).apply {
             text = "Stop Watcher & Exit App"
